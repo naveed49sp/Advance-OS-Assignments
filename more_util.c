@@ -84,6 +84,7 @@ void do_more(FILE *fp)
          	char str[50];             
             fgets(str, 50, stdin); 
             search(fp,str);
+            canon_echo_off();
 		 }
 		 else if (rv == 4){ // user pressed v
 		 	printf("\033[2K \033[1G");
