@@ -1,9 +1,12 @@
-// more v02 
-// get the terminal size at run time and displays the percentage of file at bottom left corner
+// more v03 it get terminal size at runtime
+// Show file percentage at bottom left corner
+// Takes the input in non canonical and non-echo mode.
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
+#include <termios.h>
+#include <string.h>
 
 #define	LINELEN	512
 
@@ -11,6 +14,8 @@ void do_more(FILE *);
 int  get_input(FILE*, int);
 int count_lines(FILE* );
 int get_pagelen();
+void canon_echo_off();
+void canon_echo_on();
 int main(int argc , char *argv[])
 {
    int i=0;
@@ -27,13 +32,14 @@ int main(int argc , char *argv[])
       }
       do_more(fp);
       fclose(fp);
-   }  
+   }
+   canon_echo_on(); 
    return 0;
 }
 
 void do_more(FILE *fp)
 {
-   int PAGELEN = get_pagelen()-1; //one line to print the more command
+   int PAGELEN = get_pagelen()-1;
    int num_of_lines = 0;
    int printed_lines = 0;   //They are never decremented
    int rv;
@@ -48,21 +54,23 @@ void do_more(FILE *fp)
       printed_lines++;
       if (num_of_lines == PAGELEN){
       	 avg = printed_lines * 100/file_size;
+      	 // Icanon and echo off
+      	 canon_echo_off();
          rv = get_input(fp_tty, avg);		
          if (rv == 0){//user pressed q
-            printf("\033[1A \033[2K \033[1G");
+            printf("\033[2K \033[1G");
             break;//
          }
          else if (rv == 1){//user pressed space bar
-            printf("\033[1A \033[2K \033[1G");
+            printf("\033[2K \033[1G");
             num_of_lines -= PAGELEN;
          }
          else if (rv == 2){//user pressed return/enter
-            printf("\033[1A \033[2K \033[1G");
+            printf("\033[2K \033[1G");
 	         num_of_lines -= 1; //show one more line
             }
          else if (rv == 3){ //invalid character
-            printf("\033[1A \033[2K \033[1G");
+            printf("\033[2K \033[1G");
             break; 
          }
       }
@@ -106,5 +114,27 @@ int get_pagelen()
       exit(1);
     }
     return wbuf.ws_row;
+}
+
+void canon_echo_off()
+{
+	//get attributes
+    struct termios info;
+    tcgetattr(0, &info); 
+   	//make the echo bit off and set attributes
+   	info.c_lflag &= ~ECHO;
+   	info.c_lflag &= ~ICANON;       
+   	tcsetattr(0, TCSANOW, &info);
+}
+
+void canon_echo_on()
+{
+	//get attributes
+    struct termios info;
+    tcgetattr(0, &info); 
+   	//make the echo bit and cannoical bit on and set attributes
+   	info.c_lflag |= ECHO;
+   	info.c_lflag |= ICANON;       
+	tcsetattr(0, TCSANOW, &info);
 }
 
