@@ -1,7 +1,8 @@
-// more v04 it get terminal size at runtime
+// more v05 it get terminal size at runtime
 // Show file percentage at bottom left corner
 // Takes the input in non canonical and non-echo mode.
 // search for a string in a file
+// open file in vim on v
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,8 +10,11 @@
 #include <termios.h>
 #include <string.h>
 #include <stdbool.h>
+#include <unistd.h>
+#include <sys/wait.h>
 
 #define	LINELEN	512
+char *file; //global variable
 
 void do_more(FILE *);
 int  get_input(FILE*, int);
@@ -28,7 +32,8 @@ int main(int argc , char *argv[])
    }
    FILE * fp;
    while(++i < argc){
-      fp = fopen(argv[i] , "r");
+   	  file = argv[i];
+      fp = fopen(file , "r");
       if (fp == NULL){
          perror("Can't open file");
          exit (1);
@@ -49,6 +54,7 @@ void do_more(FILE *fp)
    char buffer[LINELEN];
    int file_size = count_lines(fp);
    int avg;
+   int status;
    FILE* fp_tty = fopen("/dev//tty", "r");
    fseek(fp, 0, SEEK_SET); // current file offset 0 bytes in the beginning seek_set, seek_cur, seek_end
    while (fgets(buffer, LINELEN, fp)){
@@ -79,7 +85,19 @@ void do_more(FILE *fp)
             fgets(str, 50, stdin); 
             search(fp,str);
 		 }
-         else if (rv == 4){ //invalid character
+		 else if (rv == 4){ // user pressed v
+		 	printf("\033[2K \033[1G");
+		 	if(fork() == 0){//it is child
+		 		execlp("vim", "myvim", file, NULL);
+			 }
+			else{
+      			wait(&status);
+      			fclose(fp);
+      			fp = fopen(file , "r");
+      			do_more(fp);
+   			}
+		 }
+         else if (rv == 5){ //invalid character
             printf("\033[2K \033[1G");
             break; 
          }
@@ -100,8 +118,10 @@ int get_input(FILE* cmdstream, int avg)
 	 	return 2;
 	else if (c == '/')
 	  	return 3;
+	else if (c == 'v')
+		return 4;
 	else
-   		return 4;
+   		return 5;
 }
 
 int count_lines(FILE* fp)
