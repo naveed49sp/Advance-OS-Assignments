@@ -1,12 +1,14 @@
-// more v03 it get terminal size at runtime
+// more v04 it get terminal size at runtime
 // Show file percentage at bottom left corner
 // Takes the input in non canonical and non-echo mode.
+// search for a string in a file
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
 #include <termios.h>
 #include <string.h>
+#include <stdbool.h>
 
 #define	LINELEN	512
 
@@ -16,6 +18,7 @@ int count_lines(FILE* );
 int get_pagelen();
 void canon_echo_off();
 void canon_echo_on();
+void search(FILE*, char *);
 int main(int argc , char *argv[])
 {
    int i=0;
@@ -67,9 +70,16 @@ void do_more(FILE *fp)
          }
          else if (rv == 2){//user pressed return/enter
             printf("\033[2K \033[1G");
-	         num_of_lines -= 1; //show one more line
+	        num_of_lines -= 1; //show one more line
             }
-         else if (rv == 3){ //invalid character
+         else if (rv == 3){ // user want search
+         	canon_echo_on();
+         	printf("\033[2K \033[1G /"); //remove current line move cursor in column 1 and print /
+         	char str[50];             
+            fgets(str, 50, stdin); 
+            search(fp,str);
+		 }
+         else if (rv == 4){ //invalid character
             printf("\033[2K \033[1G");
             break; 
          }
@@ -81,15 +91,17 @@ int get_input(FILE* cmdstream, int avg)
 {
    int c;		
    printf("\033[7m --more--(%d%%) \033[m", avg);
-     c = getc(cmdstream);
-      if(c == 'q')
-	 return 0;
-      if ( c == ' ' )			
-	 return 1;
-      if ( c == '\n' )	
-	 return 2;	
-      return 3;
-   return 0;
+    c = getc(cmdstream);
+    if(c == 'q')
+		return 0;
+    else if ( c == ' ' )			
+	 	return 1;
+    else if ( c == '\n' )	
+	 	return 2;
+	else if (c == '/')
+	  	return 3;
+	else
+   		return 4;
 }
 
 int count_lines(FILE* fp)
@@ -136,5 +148,26 @@ void canon_echo_on()
    	info.c_lflag |= ECHO;
    	info.c_lflag |= ICANON;       
 	tcsetattr(0, TCSANOW, &info);
+}
+
+void search(FILE* fp, char *str)
+{
+	int line_num = 1;
+  	bool found = false;
+  	char temp[512];
+  	fseek(fp, 0, SEEK_SET);
+  	// with fgets we get content of the file line by line
+  	// strstr will search for our string in the line
+  	while(fgets(temp, 512, fp) != NULL) {
+    	if((strstr(temp, str)) != NULL) {
+    		printf("\033[1A \033[2K \033[1G \033[7m Found on line: %d \033[m\n", line_num);
+      		found = true;
+    	}
+    	line_num++;
+ 	}
+
+  if(!found) {
+    printf("\033[1A \033[2K \033[1G \033[7m Pattern not found \033[m\n");
+   }
 }
 
